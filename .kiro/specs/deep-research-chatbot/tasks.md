@@ -3,11 +3,6 @@
 - [ ] 1. 프로젝트 구조 및 기본 설정
 
 
-
-
-
-
-
   - 백엔드 디렉토리 구조 생성 (agents, tools, models, workflows, api 등)
   - 프론트엔드 Vue 3 프로젝트 초기화 (Vite + TypeScript)
   - 필요한 의존성 설치 (Flask, LangChain, LangGraph, MySQL, Chroma 등)
