@@ -2,7 +2,7 @@
 
 ## 개요 (Overview)
 
-Deep Research Chatbot은 LangChain과 LangGraph를 활용한 멀티 에이전트 시스템으로, 사용자의 질문에 대해 심층적이고 포괄적인 연구를 수행합니다. 시스템은 여러 전문 에이전트가 협력하여 정보를 수집, 분석, 종합하는 구조로 설계되며, 상태 기반 워크플로우를 통해 체계적인 연구 프로세스를 관리합니다. Streamlit을 통한 최소한의 사용자 인터페이스를 제공합니다.
+Deep Research Chatbot은 LangChain과 LangGraph를 활용한 멀티 에이전트 시스템으로, 사용자의 질문에 대해 심층적이고 포괄적인 연구를 수행합니다. 시스템은 여러 전문 에이전트가 협력하여 정보를 수집, 분석, 종합하는 구조로 설계되며, 상태 기반 워크플로우를 통해 체계적인 연구 프로세스를 관리합니다. 정보 검색을 위해 Tavily와 DuckDuckGo 두 검색 엔진을 활용하며, 검색 결과는 벡터 DB에 저장되어 다른 에이전트들이 효율적으로 참조할 수 있습니다. Streamlit을 통한 최소한의 사용자 인터페이스를 제공하고, LangSmith를 통해 시스템 성능을 모니터링합니다.
 
 ## 아키텍처 (Architecture)
 
@@ -22,7 +22,10 @@ graph TB
     LangGraph --> ValidationAgent[검증 에이전트]
     
     ResearchAgent --> TavilyAPI[Tavily 검색]
+    ResearchAgent --> DuckDuckGoAPI[DuckDuckGo 검색]
+    ResearchAgent --> VectorDB[벡터 DB]
     AnalysisAgent --> DataProcessor[데이터 처리기]
+    AnalysisAgent --> VectorDB
     
     LangGraph --> StateManager[상태 관리자]
     StateManager --> ConversationMemory[대화 메모리]
@@ -33,8 +36,8 @@ graph TB
 1. **프레젠테이션 레이어**: Streamlit 기반 최소 사용자 인터페이스
 2. **오케스트레이션 레이어**: 워크플로우 관리 및 에이전트 조정
 3. **에이전트 레이어**: 전문화된 AI 에이전트들
-4. **도구 레이어**: Tavily API 검색 연결
-5. **데이터 레이어**: 메모리 기반 대화 기록 저장
+4. **도구 레이어**: Tavily API 및 DuckDuckGo API 검색 연결
+5. **데이터 레이어**: 벡터 DB 기반 지식 저장소 및 메모리 기반 대화 기록 저장
 
 ## 컴포넌트 및 인터페이스 (Components and Interfaces)
 
@@ -43,9 +46,10 @@ graph TB
 #### ResearchAgent (연구 에이전트)
 - **역할**: 초기 정보 수집 및 기본 연구 수행
 - **기능**: 
-  - Tavily API를 통한 웹 검색
+  - Tavily API 및 DuckDuckGo API를 통한 웹 검색
   - 소스 신뢰성 평가
   - 정보 구조화
+  - 검색 결과 벡터화 및 벡터 DB 저장
 - **입력**: 연구 주제, 검색 키워드
 - **출력**: 구조화된 연구 데이터, 소스 목록
 
@@ -55,6 +59,7 @@ graph TB
   - 데이터 패턴 분석
   - 상관관계 발견
   - 통계적 분석
+  - 벡터 DB에서 관련 정보 검색 및 활용
 - **입력**: 연구 데이터, 분석 요구사항
 - **출력**: 분석 결과, 인사이트
 
@@ -130,6 +135,10 @@ class StreamlitApp:
     def display_results(self, results: ResearchResult):
         # 연구 결과 표시
         pass
+    
+    def show_progress(self, progress: float, status: str):
+        # 실시간 진행 상황 표시
+        pass
 ```
 
 ### 4. 대화 관리 시스템
@@ -154,7 +163,7 @@ class ConversationMemory:
         pass
 ```
 
-### 5. 도구 및 유틸리티
+### 5. 검색 및 지식 관리 도구
 
 #### TavilySearchTool
 ```python
@@ -172,10 +181,75 @@ class TavilySearchTool:
         pass
 ```
 
+#### DuckDuckGoSearchTool
+```python
+class DuckDuckGoSearchTool:
+    def __init__(self):
+        self.client = DuckDuckGoClient()
+    
+    def search(self, query: str, max_results: int = 5) -> List[SearchResult]:
+        # DuckDuckGo API를 사용한 검색
+        pass
+    
+    def search_with_context(self, query: str, context: str) -> List[SearchResult]:
+        # 컨텍스트를 포함한 검색
+        pass
+    
+    def handle_error(self, error: Exception) -> List[SearchResult]:
+        # 오류 처리 및 우아한 실패
+        pass
+```
+
+#### VectorDBManager
+```python
+class VectorDBManager:
+    def __init__(self, embedding_model: str = "text-embedding-ada-002"):
+        self.embedding_model = embedding_model
+        self.vector_db = self._initialize_vector_db()
+    
+    def _initialize_vector_db(self):
+        # 벡터 DB 초기화
+        pass
+    
+    def store_search_results(self, results: List[SearchResult], query: str):
+        # 검색 결과 벡터화 및 저장
+        pass
+    
+    def search_similar_results(self, query: str, top_k: int = 5) -> List[SearchResult]:
+        # 유사 검색 결과 조회
+        pass
+    
+    def update_outdated_results(self, threshold_days: int = 30):
+        # 오래된 결과 업데이트
+        pass
+```
+
 #### DataProcessor
-- 텍스트 전처리 및 정제
-- 구조화된 데이터 추출
-- 중복 제거 및 데이터 정규화
+```python
+class DataProcessor:
+    def __init__(self):
+        self.nlp = self._initialize_nlp()
+    
+    def _initialize_nlp(self):
+        # NLP 도구 초기화
+        pass
+    
+    def preprocess_text(self, text: str) -> str:
+        # 텍스트 전처리
+        pass
+    
+    def remove_duplicates(self, results: List[SearchResult]) -> List[SearchResult]:
+        # 중복 제거
+        pass
+    
+    def normalize_data(self, results: List[SearchResult]) -> List[SearchResult]:
+        # 데이터 정규화
+        pass
+    
+    def evaluate_source_reliability(self, source: str) -> float:
+        # 소스 신뢰성 평가
+        pass
+```
 
 ## 데이터 모델 (Data Models)
 
@@ -201,6 +275,7 @@ class ResearchData:
     reliability_score: float
     timestamp: datetime
     tags: List[str]
+    search_engine: str  # 'tavily' 또는 'duckduckgo'
     raw_data: dict
 ```
 
@@ -235,7 +310,9 @@ class SearchResult:
     url: str
     content: str
     score: float
+    search_engine: str  # 'tavily' 또는 'duckduckgo'
     published_date: Optional[datetime]
+    vector_id: Optional[str] = None  # 벡터 DB에 저장된 ID
 ```
 
 ### ConversationMessage
@@ -248,6 +325,18 @@ class ConversationMessage:
     metadata: Optional[dict] = None
 ```
 
+### VectorDBEntry
+```python
+@dataclass
+class VectorDBEntry:
+    content: str
+    metadata: dict
+    vector: List[float]
+    id: str
+    timestamp: datetime
+    ttl: Optional[int] = None  # 데이터 유효 기간 (초)
+```
+
 ## 워크플로우 설계
 
 ### 연구 프로세스 플로우
@@ -255,7 +344,8 @@ class ConversationMessage:
 ```mermaid
 stateDiagram-v2
     [*] --> QueryAnalysis: 사용자 질문 입력
-    QueryAnalysis --> ResearchPlanning: 질문 분석 완료
+    QueryAnalysis --> VectorDBCheck: 질문 분석 완료
+    VectorDBCheck --> ResearchPlanning: 벡터 DB 검색 완료
     ResearchPlanning --> DataCollection: 연구 계획 수립
     DataCollection --> DataAnalysis: 데이터 수집 완료
     DataAnalysis --> Synthesis: 분석 완료
@@ -263,10 +353,38 @@ stateDiagram-v2
     Validation --> ResultPresentation: 검증 완료
     ResultPresentation --> [*]: 결과 제시
     
+    VectorDBCheck --> ResultPresentation: 유사 결과 발견
     DataCollection --> DataCollection: 추가 데이터 필요
     DataAnalysis --> DataCollection: 더 많은 데이터 필요
     Validation --> DataAnalysis: 재분석 필요
     Validation --> Synthesis: 재종합 필요
+```
+
+### 검색 및 벡터 DB 통합 플로우
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자
+    participant RA as 연구 에이전트
+    participant Tavily as Tavily API
+    participant DDG as DuckDuckGo API
+    participant VDB as 벡터 DB
+    
+    User->>RA: 연구 질문
+    RA->>VDB: 유사 검색 결과 조회
+    
+    alt 유사 결과 존재
+        VDB-->>RA: 저장된 검색 결과 반환
+    else 유사 결과 없음
+        RA->>Tavily: 검색 요청
+        Tavily-->>RA: 검색 결과
+        RA->>DDG: 검색 요청
+        DDG-->>RA: 검색 결과
+        RA->>RA: 결과 병합 및 중복 제거
+        RA->>VDB: 검색 결과 저장
+    end
+    
+    RA-->>User: 연구 결과 제공
 ```
 
 ### 에이전트 협력 패턴
@@ -275,8 +393,14 @@ stateDiagram-v2
 2. **병렬 처리**: 여러 연구 에이전트가 동시에 다른 관점 탐색
 3. **피드백 루프**: 검증 에이전트의 피드백에 따른 재처리
 4. **동적 라우팅**: 질문 유형에 따른 적절한 에이전트 선택
+5. **지식 공유**: 벡터 DB를 통한 에이전트 간 정보 공유
 
 ## 오류 처리 (Error Handling)
+
+### 검색 엔진 오류 처리
+- **다중 검색 엔진 활용**: Tavily 또는 DuckDuckGo 중 하나가 실패해도 다른 엔진으로 계속 진행
+- **부분 결과 활용**: 일부 검색 결과만 얻어도 연구 계속 진행
+- **캐시된 결과 활용**: 벡터 DB에 저장된 이전 결과 활용
 
 ### 에이전트 레벨 오류 처리
 - **타임아웃 처리**: 각 에이전트별 최대 실행 시간 설정
@@ -302,18 +426,38 @@ class ErrorHandler:
     def handle_validation_error(self, error: ValidationError):
         # 검증 오류 처리 (재연구 요청)
         pass
+    
+    def handle_search_engine_error(self, error: SearchEngineError, engine: str):
+        # 검색 엔진 오류 처리 (대체 엔진 사용)
+        pass
 ```
+
+## 벡터 DB 설계
+
+### 벡터 DB 구조
+- **임베딩 모델**: OpenAI의 text-embedding-ada-002 또는 유사 모델
+- **메타데이터**: 검색 쿼리, 타임스탬프, 소스 URL, 검색 엔진 등
+- **인덱싱**: 효율적인 유사도 검색을 위한 인덱스 구성
+- **TTL (Time-To-Live)**: 오래된 데이터 자동 만료 처리
+
+### 벡터 DB 작업 흐름
+1. **저장**: 검색 결과를 벡터화하여 메타데이터와 함께 저장
+2. **검색**: 사용자 쿼리를 벡터화하여 유사한 기존 결과 검색
+3. **업데이트**: 오래된 데이터 감지 및 새로운 검색으로 업데이트
+4. **필터링**: 메타데이터 기반 검색 결과 필터링
 
 ## 테스트 전략 (Testing Strategy)
 
 ### 단위 테스트
 - **에이전트 테스트**: 각 에이전트의 개별 기능 테스트
-- **도구 테스트**: Tavily API 연동 테스트
+- **도구 테스트**: Tavily API 및 DuckDuckGo API 연동 테스트
+- **벡터 DB 테스트**: 저장, 검색, 업데이트 기능 테스트
 - **상태 관리 테스트**: 상태 전환 및 데이터 일관성 테스트
 
 ### 통합 테스트
 - **워크플로우 테스트**: 전체 연구 프로세스 통합 테스트
 - **에이전트 협력 테스트**: 에이전트 간 통신 및 협력 테스트
+- **검색 엔진 통합 테스트**: Tavily와 DuckDuckGo 결과 통합 테스트
 - **성능 테스트**: 응답 시간 및 처리량 테스트
 
 ### 시나리오 테스트
@@ -330,6 +474,14 @@ class ResearchScenarioTests:
     def test_multi_domain_query(self):
         # 여러 도메인에 걸친 질문 테스트
         pass
+    
+    def test_cached_result_retrieval(self):
+        # 벡터 DB에서 캐시된 결과 검색 테스트
+        pass
+    
+    def test_search_engine_fallback(self):
+        # 검색 엔진 실패 시 대체 엔진 사용 테스트
+        pass
 ```
 
 ## 확장성 고려사항
@@ -339,12 +491,18 @@ class ResearchScenarioTests:
 - **설정 기반 에이전트**: YAML/JSON 설정으로 에이전트 동작 정의
 - **동적 로딩**: 런타임에 에이전트 추가/제거
 
-### 도구 확장
-- **도구 레지스트리**: 사용 가능한 도구들의 중앙 관리
-- **API 어댑터**: 새로운 검색 서비스 쉽게 통합
-- **커스텀 도구**: 사용자 정의 도구 개발 지원
+### 검색 엔진 확장
+- **검색 엔진 어댑터**: 새로운 검색 엔진 쉽게 통합
+- **검색 결과 표준화**: 다양한 검색 엔진 결과를 표준 형식으로 변환
+- **가중치 기반 결과 병합**: 검색 엔진별 신뢰도에 따른 결과 병합
+
+### 벡터 DB 확장
+- **샤딩 및 파티셔닝**: 대규모 데이터 처리를 위한 DB 확장
+- **인덱스 최적화**: 검색 성능 향상을 위한 인덱스 전략
+- **캐싱 전략**: 자주 사용되는 쿼리 결과 캐싱
 
 ### 성능 최적화
 - **응답 스트리밍**: Streamlit을 통한 실시간 결과 스트리밍
 - **병렬 처리**: 독립적인 작업의 동시 실행
 - **메모리 관리**: 대화 컨텍스트 크기 제한으로 메모리 최적화
+- **벡터 DB 쿼리 최적화**: 효율적인 유사도 검색 알고리즘 활용
